@@ -68,6 +68,7 @@ end
 ---@param btnDef ButtonDef
 function ButtonOnFlyoutMenu:setDef(btnDef, event)
     self.btnDef = btnDef
+    SpellIcons:updateIndicator(self, btnDef and btnDef.spellId)
     self:copyDefToBlizFields()
 
     -- install click behavior but only if it's on a Germ (i.e. not in the Catalog)
@@ -370,6 +371,7 @@ end
 -- TODO: should this be in Button_Mixin so that Germ can enjoy it too?
 ---@param self ButtonOnFlyoutMenu -- IntelliJ-EmmyLua annotation
 function ButtonOnFlyoutMenu:onLoad()
+    SpellIcons:initializeIndicator(self)
     -- leverage inheritance - invoke parent's OnLoad()
     self:SmallActionButtonMixin_OnLoad()
     SecureHandler_OnLoad(self)

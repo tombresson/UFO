@@ -82,6 +82,8 @@ function Button_Mixin:setIcon(icon, event)
     self.originalIconSetTextureFunc(iconFrame, icon) -- the iconFrame is the self for the original SetTexture
     --self:safelySetSecEnvAttribute("UFO_ICON", icon) -- for use by the promoter
     self.iconTexture = icon
+    local def = self:getDef()
+    SpellIcons:updateIndicator(self, def and def.spellId)
 end
 
 -- TODO - go look at ActionBarActionButtonMixin:Update() and copy anything I'm missing
@@ -89,6 +91,7 @@ function Button_Mixin:renderCooldownsAndCountsAndStatesEtc(event)
     -- should I call self:Update() aka ActionBarActionButtonMixin:Update() ... um, maybe I'm not an ActionBarActionButtonMixin
     local btnDef = self:getDef()
     local spellId = btnDef and btnDef.spellId
+    SpellIcons:updateIndicator(self, spellId)
     if spellId then
         if not self.spellID then
             -- internal Bliz code expects this field

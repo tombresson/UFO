@@ -401,7 +401,7 @@ function ButtonDef:getIcon()
     -- if icon then return icon end
 
     if t == ButtonType.SPELL or t == ButtonType.MOUNT or t == ButtonType.PSPELL then
-        icon = C_Spell.GetSpellTexture(id)
+        icon = SpellIcons:getTexture(id)
     elseif t == ButtonType.ITEM or t == ButtonType.TOY then
         icon = C_Item.GetItemIconByID(id)
     elseif t == ButtonType.MACRO then
