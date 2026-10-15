@@ -302,6 +302,8 @@ end
 
 function Germ:closeFlyout()
     self.flyoutMenu:close()
+    -- Its parent may already be hidden when a direct native action is open.
+    NativeFlyout:closeForOwner(self)
 end
 
 -- will replace Germ:Hide() via Germ:new()

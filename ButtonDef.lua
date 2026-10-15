@@ -505,6 +505,7 @@ function ButtonDef:getToolTipSetter()
             if description and description ~= "" then
                 tooltip:AddLine(description, 1, 1, 1, true)
             end
+            tooltip:Show() -- resize after adding the description
         end
     elseif type == ButtonType.SPELL or type == ButtonType.MOUNT or type == ButtonType.PSPELL then
         tooltipSetter = GameTooltip.SetSpellByID

@@ -177,6 +177,12 @@ function NativeFlyout:getAction(flyoutId)
     return action, "_" .. action, string.format(self.openScript, action)
 end
 
+function NativeFlyout:closeForOwner(owner)
+    local group = self.groups[owner]
+    if not group then return end
+    for _, menu in pairs(group.menus) do menu:Hide() end
+end
+
 function NativeFlyout:prepare(button, def)
     assert(not InCombatLockdown(), "Configure native flyouts outside combat")
     local nested = button.ufoType == ButtonOnFlyoutMenu.ufoType
@@ -208,14 +214,19 @@ function NativeFlyout:prepare(button, def)
         group.count = group.count + 1
         owner:SetFrameRef("UFO_NATIVE_MENU_" .. group.count, menu)
         owner:SetAttribute("UFO_NATIVE_COUNT", group.count)
+        local closeMenu = 'local menu = self:GetFrameRef("' .. action .. '"); if menu then menu:Hide() end'
+        -- Direct primary/recent/random/cycle actions can show the submenu
+        -- while the ordinary UFO menu is hidden. Close that sibling before
+        -- it can compete with a newly opened parent menu's number bindings.
+        SecureHandlerWrapScript(owner, "OnHide", menu, closeMenu)
         if parentMenu then
             for i = 1, 10 do
                 local target = parentMenu:getButtonFrame(i)
                 if target then parentMenu:SetFrameRef("UFO_NATIVE_NUMBER_" .. i, target) end
             end
             parentMenu:SetFrameRef(action, menu)
-            SecureHandlerWrapScript(parentMenu, "OnHide", menu,
-                'local menu = self:GetFrameRef("' .. action .. '"); if menu then menu:Hide() end')
+            SecureHandlerWrapScript(parentMenu, "OnHide", menu, closeMenu)
+            SecureHandlerWrapScript(parentMenu, "OnShow", menu, closeMenu)
         end
     end
 
