@@ -36,6 +36,7 @@ ProfessionShitShow.lua
 FlyoutDefsDb.lua
 FlyoutDef.lua
 ButtonDef.lua
+NativeFlyout.lua
 ui\Button_Mixin.lua
 BlizActionBarButton.lua
 UfoProxy.lua

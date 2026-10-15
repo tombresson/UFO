@@ -153,7 +153,10 @@ function Button_Mixin:updateCooldown(event)
     local spellId = btnDef and btnDef.spellId
     zebug.trace:event(event):owner(self):print("type",type, "itemId",itemId, "spellId",spellId)
 
-    if type == ButtonType.SUMMON_RANDOM_FAVORITE_MOUNT then
+    if type == ButtonType.FLYOUT then
+        self.cooldown:Clear()
+        return
+    elseif type == ButtonType.SUMMON_RANDOM_FAVORITE_MOUNT then
         return
     end
 
@@ -292,6 +295,9 @@ function Button_Mixin:assignSecEnvMouseClickBehaviorVia_AttributeFromBtnDef(mous
     local btnDef = self:getDef()
 
     if btnDef then
+        if btnDef.type == ButtonType.FLYOUT then
+            NativeFlyout:prepare(self, btnDef)
+        end
         local secEnvMouseClickId = MouseClickAsSecEnvId[mouseClick] -- "type1" or "type2" etc
         local typeOfAction, typeOfActionButDumber, actualAction = btnDef:asSecureClickHandlerAttributes(event)
         -- typeOfActionButDumber = typeOfActionButDumber or typeOfAction

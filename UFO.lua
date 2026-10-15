@@ -128,6 +128,8 @@ end
 -- Can't risk ignoring / throttling the spam of events.
 EventHandlers.SPELLS_CHANGED = Throttler:throttle(1.5, "Ufo:SPELLS_CHANGED", EventHandlers.SPELLS_CHANGED)
 
+EventHandlers.SPELL_FLYOUT_UPDATE = EventHandlers.SPELLS_CHANGED
+
 --[[
 function EventHandlers:EDIT_MODE_LAYOUTS_UPDATED(eName, n, layoutInfo, reconcileLayouts)
     zebug.info:mCircle():name("handler"):newEvent("Ufo", eName, n):run(function(event)
