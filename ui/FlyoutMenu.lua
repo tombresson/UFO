@@ -141,6 +141,10 @@ local CLOSE_FLYOUT_WHEN_BTN_IS_CLICKED_SEC_ENV_SCRIPT = [=[
     -- follow convention and trigger on mouse UP / key UP, not down (and certainly not both up and down).  the "down" variable is passed in by the Bliz API
     if down then return end
 
+    -- leave the UFO open while choosing a native submenu action
+    local actionType = self:GetAttribute("type")
+    if actionType and string.sub(actionType, 1, 11) == "UFO_NATIVE_" then return end
+
     if not flyoutMenu then
         flyoutMenu = self:GetParent() or self:GetFrameRef("flyoutMenu")
     end
@@ -250,14 +254,15 @@ end
 
 
 function FlyoutMenu:getDirection()
+    -- catalog previews always extend right; their parent can be the catalog instead of a germ
+    if self.isForCatalog then
+        return "RIGHT"
+    end
+
     ---@type GERM_TYPE
     local p = self:getParent()
     if not p then
-        if self.isForCatalog then
-            return DIRECTION_FOR_CATALOG
-        else
-            error("no parent")
-        end
+        error("no parent")
     end
 
     local func = p.getDirection

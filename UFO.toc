@@ -35,7 +35,9 @@ PetShitShow.lua
 ProfessionShitShow.lua
 FlyoutDefsDb.lua
 FlyoutDef.lua
+SpellIcons.lua
 ButtonDef.lua
+NativeFlyout.lua
 ui\Button_Mixin.lua
 BlizActionBarButton.lua
 UfoProxy.lua

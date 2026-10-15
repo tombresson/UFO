@@ -292,7 +292,7 @@ function FlyoutDef:hasFoo(key, cacher, type, event)
         zebug.info:mark(Mark.INFO):event(event):owner(self):print("indexing for", key)
         ---@param btnDef ButtonDef
         self:forEachBtn(function(btnDef)
-            if btnDef.type == type then
+            if btnDef.type == type or (type == ButtonType.SPELL and btnDef.type == ButtonType.FLYOUT) then
                 cacher(self, true)
                 zebug.info:event(event):owner(self):print(key, self[key], "btn",  btnDef.name)
             else

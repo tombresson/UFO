@@ -2,6 +2,24 @@
 
 A World of Warcraft addon
 
+### Build a local release
+
+Run `python release.py` from a clean, committed UFO checkout. Git and Python
+3.8 or newer are required; no additional Python packages are needed. The script
+combines the base version in `UFO.toc` with `git rev-parse --short HEAD` and
+writes `dist/UFO-<version>-<hash>.zip` (for example, `UFO-12.1.5-a1b2c3d.zip`).
+The packaged TOC uses that same version so UFO reports the build's commit in
+game. The source TOC remains unchanged; there is no release counter to update.
+
+The ZIP contains an installable `UFO` folder with the bundled libraries. The
+script checks TOC/XML dependencies and ZIP integrity and packages tracked files,
+excluding tests, build scripts, Git files, and previous releases. Working
+changes, including untracked files or modified submodules, must be committed or
+stashed first so the hash identifies the code being released.
+
+For a fresh clone, first run `git submodule update --init --recursive` to fetch
+the required shared library. Rebuilding the same commit replaces its ZIP.
+
 ---
 
 UFO lets you create custom actionbar flyout menus similar to the built-in ones for mage portals, warlock demons, dragonriding abilities, etc.  But with UFO, you can include anything you want:

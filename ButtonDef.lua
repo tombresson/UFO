@@ -17,6 +17,7 @@ CLEAR_CURRENT_TRANSMOGRIFICATIONS_SPELL_ID = 1247917
 ---@class ButtonType -- IntelliJ-EmmyLua annotation
 ButtonType = {
     SPELL = "spell",
+    FLYOUT = "flyout",
     MOUNT = "mount",
     ITEM  = "item",
     TOY   = "toy",
@@ -39,6 +40,7 @@ ButtonType = {
 ---@field key string which field should be used as the ID
 -- the key is a ButtonType as returned by GetCursorInfo while the user is dragging it around on the mouse.
 BlizApiFieldDef = {
+    [ButtonType.FLYOUT] = { pickerUpper = function(id) NativeFlyout:pickup(id) end, typeForBliz = ButtonType.FLYOUT, },
     [ButtonType.SPELL] = { pickerUpper = C_Spell.PickupSpell, typeForBliz = ButtonType.SPELL, },
     [ButtonType.MOUNT] = { pickerUpper = C_Spell.PickupSpell, typeForBliz = ButtonType.SPELL, },
     [ButtonType.ITEM ] = { pickerUpper = C_Item.PickupItem, typeForBliz = ButtonType.ITEM,  },
@@ -87,6 +89,7 @@ BrokenProfessions = {
 ---@field type ButtonType
 ---@field name string
 ---@field spellId number
+---@field flyoutId number Blizzard flyout ID, distinct from a spell ID
 ---@field itemId number
 ---@field mountId number
 ---@field petGuid string
@@ -282,6 +285,8 @@ function ButtonDef:setIdAndType(id, type)
     self.type = type
     if type == ButtonType.SPELL then
         self.spellId = id
+    elseif type == ButtonType.FLYOUT then
+        self.flyoutId = id
     elseif type == ButtonType.MOUNT then
         local name, spellId = C_MountJournal.GetMountInfoByID(id)
         self.spellId = spellId
@@ -328,7 +333,10 @@ function ButtonDef:isUsable(event)
     local isUsable, err
 
     zebug.trace:owner(self):print("type",t, "spellId", self.spellId, "id",id)
-    if t == ButtonType.MOUNT then
+    if t == ButtonType.FLYOUT then
+        local _, _, numSlots, isKnown = GetFlyoutInfo(id)
+        return isKnown and (numSlots or 0) > 0
+    elseif t == ButtonType.MOUNT then
         local mountId = self.mountId
         isUsable, err = C_MountJournal.GetMountUsabilityByID(mountId, false --[[checkIndoors]])
         local name, spellID, icon, isActive, isUsable, sourceType, isFavorite, isFactionSpecific, faction, shouldHideOnChar, isCollected, mountID, isSteadyFlight = C_MountJournal.GetMountInfoByID(mountId)
@@ -397,11 +405,17 @@ function ButtonDef:getIcon()
     local t = self.type
     local id = self:getIdForBlizApi()
 
+    if t == ButtonType.FLYOUT then
+        local icon = NativeFlyout:getIcon(id)
+        if icon then self.fallbackIcon = icon end
+        return icon or self.fallbackIcon or DEFAULT_ICON_FULL
+    end
+
     local icon -- = getIconFromCache(t, id)
     -- if icon then return icon end
 
     if t == ButtonType.SPELL or t == ButtonType.MOUNT or t == ButtonType.PSPELL then
-        icon = C_Spell.GetSpellTexture(id)
+        icon = SpellIcons:getTexture(id)
     elseif t == ButtonType.ITEM or t == ButtonType.TOY then
         icon = C_Item.GetItemIconByID(id)
     elseif t == ButtonType.MACRO then
@@ -437,7 +451,9 @@ function ButtonDef:getName()
 
     local t = self.type
     local id = self:getIdForBlizApi()
-    if t == ButtonType.SPELL or t == ButtonType.MOUNT or t == ButtonType.PSPELL then
+    if t == ButtonType.FLYOUT then
+        self.name = GetFlyoutInfo(id) or UNKNOWN
+    elseif t == ButtonType.SPELL or t == ButtonType.MOUNT or t == ButtonType.PSPELL then
         zebug.trace:owner(self):print("type",t, "id",id, "mountId", self.mountId)
 
 --[[
@@ -482,7 +498,16 @@ function ButtonDef:getToolTipSetter()
     zebug.trace:line(20, "type",type, "id",id)
 
     local tooltipSetter
-    if type == ButtonType.SPELL or type == ButtonType.MOUNT or type == ButtonType.PSPELL then
+    if type == ButtonType.FLYOUT then
+        tooltipSetter = function(tooltip, flyoutId)
+            local name, description = GetFlyoutInfo(flyoutId)
+            tooltip:SetText(name or UNKNOWN)
+            if description and description ~= "" then
+                tooltip:AddLine(description, 1, 1, 1, true)
+            end
+            tooltip:Show() -- resize after adding the description
+        end
+    elseif type == ButtonType.SPELL or type == ButtonType.MOUNT or type == ButtonType.PSPELL then
         tooltipSetter = GameTooltip.SetSpellByID
     elseif type == ButtonType.ITEM then
         tooltipSetter = GameTooltip.SetItemByID
@@ -544,7 +569,6 @@ function ButtonDef:getToolTipSetter()
     return nil
 end
 
--- TODO: fixx bug - doesn't understand Bliz flyouts such as Dragon Riding
 -- TODO: consolidate / integrate with BlizActionBarButton:get()
 ---@return ButtonDef
 function ButtonDef:getFromCursor(event, silenceWarnings)
@@ -569,6 +593,8 @@ function ButtonDef:getFromCursor(event, silenceWarnings)
     btnDef.type = type
     if type == ButtonType.SPELL then
         btnDef.spellId = c3
+    elseif type == ButtonType.FLYOUT then
+        btnDef.flyoutId = c1
     elseif type == ButtonType.SNAFU then
         -- this is an abnormal result containing a useless ID which isn't accepted by any API.  Not helpful.
         -- It's caused when the mouse pointer is loaded via Bliz's API PickupSpell(withTheSpellIdOfSomeMount)
@@ -675,6 +701,9 @@ end
 ---@return string typeOfActionButDumber - usually, same as above but with a little "_" attached to it - for the SecureActionButtonTemplate:SetAttribute(key, val)
 ---@return string actualAction for the SecureActionButtonTemplate:SetAttribute(key, val) - some macro text, script, or an item/spell/etc's name, eg "Healing Potion" or "Frostbolt"
 function ButtonDef:asSecureClickHandlerAttributes(event)
+    if ButtonType.FLYOUT == self.type then
+        return NativeFlyout:getAction(self.flyoutId)
+    end
     -- Check special (as in "short bus" special) cases for special needs
     if ButtonType.PET == self.type then
         -- COMPANION PET

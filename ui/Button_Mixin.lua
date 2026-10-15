@@ -82,6 +82,8 @@ function Button_Mixin:setIcon(icon, event)
     self.originalIconSetTextureFunc(iconFrame, icon) -- the iconFrame is the self for the original SetTexture
     --self:safelySetSecEnvAttribute("UFO_ICON", icon) -- for use by the promoter
     self.iconTexture = icon
+    local def = self:getDef()
+    SpellIcons:updateIndicator(self, def and def.spellId)
 end
 
 -- TODO - go look at ActionBarActionButtonMixin:Update() and copy anything I'm missing
@@ -89,6 +91,7 @@ function Button_Mixin:renderCooldownsAndCountsAndStatesEtc(event)
     -- should I call self:Update() aka ActionBarActionButtonMixin:Update() ... um, maybe I'm not an ActionBarActionButtonMixin
     local btnDef = self:getDef()
     local spellId = btnDef and btnDef.spellId
+    SpellIcons:updateIndicator(self, spellId)
     if spellId then
         if not self.spellID then
             -- internal Bliz code expects this field
@@ -153,7 +156,10 @@ function Button_Mixin:updateCooldown(event)
     local spellId = btnDef and btnDef.spellId
     zebug.trace:event(event):owner(self):print("type",type, "itemId",itemId, "spellId",spellId)
 
-    if type == ButtonType.SUMMON_RANDOM_FAVORITE_MOUNT then
+    if type == ButtonType.FLYOUT then
+        self.cooldown:Clear()
+        return
+    elseif type == ButtonType.SUMMON_RANDOM_FAVORITE_MOUNT then
         return
     end
 
@@ -292,6 +298,9 @@ function Button_Mixin:assignSecEnvMouseClickBehaviorVia_AttributeFromBtnDef(mous
     local btnDef = self:getDef()
 
     if btnDef then
+        if btnDef.type == ButtonType.FLYOUT then
+            NativeFlyout:prepare(self, btnDef)
+        end
         local secEnvMouseClickId = MouseClickAsSecEnvId[mouseClick] -- "type1" or "type2" etc
         local typeOfAction, typeOfActionButDumber, actualAction = btnDef:asSecureClickHandlerAttributes(event)
         -- typeOfActionButDumber = typeOfActionButDumber or typeOfAction

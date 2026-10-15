@@ -88,6 +88,7 @@ function SecEnv:getSecEnvScriptFor_Opener()
     end
 
 --print("binding ESCAPE to mouseClick",mouseClick)
+    flyoutMenu:SetAttribute("UFO_OPEN_MOUSE_CLICK", mouseClick)
     flyoutMenu:SetBindingClick(true, "Escape", germ, mouseClick)
 
 -- TODO: move this into FlyoutMenu:updateForGerm()

@@ -48,6 +48,22 @@ function ButtonOnFlyoutMenu:getFlyoutMenu()
     return self:GetParent()
 end
 
+function ButtonOnFlyoutMenu:IsPopupOpen()
+    return NativeFlyout:isOpen(self)
+end
+
+function ButtonOnFlyoutMenu:HasPopup()
+    return self.btnDef and self.btnDef.type == ButtonType.FLYOUT or false
+end
+
+function ButtonOnFlyoutMenu:GetPopupDirection()
+    -- OnLoad may ask for the arrow direction before the menu is initialized
+    if not self.btnDef then return "UP" end
+    -- open across the UFO row, so the submenu does not cover the other buttons
+    local direction = self:getFlyoutMenu():getDirection()
+    return (direction == "UP" or direction == "DOWN") and "RIGHT" or "UP"
+end
+
 function ButtonOnFlyoutMenu:isEmpty()
     return not self:hasDef()
 end
@@ -68,7 +84,11 @@ end
 ---@param btnDef ButtonDef
 function ButtonOnFlyoutMenu:setDef(btnDef, event)
     self.btnDef = btnDef
+    SpellIcons:updateIndicator(self, btnDef and btnDef.spellId)
     self:copyDefToBlizFields()
+    self:UpdateArrowShown()
+    self:UpdateArrowPosition()
+    self:UpdateArrowRotation()
 
     -- install click behavior but only if it's on a Germ (i.e. not in the Catalog)
     local flyoutMenu = self:getFlyoutMenu()
@@ -92,7 +112,7 @@ function ButtonOnFlyoutMenu:copyDefToBlizFields()
     local d = self.btnDef or emptyTable
     -- the names on the left are used deep inside Bliz code by the likes of SpellFlyoutButton_UpdateCooldown() etc
     self.actionType = d.type
-    self.actionID   = d.spellId or d.itemId or d.toyId or d.mountId -- or d.petGuid
+    self.actionID   = d.flyoutId or d.spellId or d.itemId or d.toyId or d.mountId -- or d.petGuid
     self.spellID    = d.spellId -- "Secret value" TAINT as of 3/26
     self.itemID     = d.itemId
     self.mountID    = d.mountId
@@ -370,6 +390,7 @@ end
 -- TODO: should this be in Button_Mixin so that Germ can enjoy it too?
 ---@param self ButtonOnFlyoutMenu -- IntelliJ-EmmyLua annotation
 function ButtonOnFlyoutMenu:onLoad()
+    SpellIcons:initializeIndicator(self)
     -- leverage inheritance - invoke parent's OnLoad()
     self:SmallActionButtonMixin_OnLoad()
     SecureHandler_OnLoad(self)

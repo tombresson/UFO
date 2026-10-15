@@ -107,6 +107,7 @@ function Germ:new(flyoutId, btnSlotIndex, event)
     )
 
     _G[myName] = self -- so that keybindings can reference it
+    SpellIcons:initializeIndicator(self)
     parentBtn.germ = self
     self.isNew = true -- a flag to silence messages during 1st time creation
 
@@ -302,6 +303,8 @@ end
 
 function Germ:closeFlyout()
     self.flyoutMenu:close()
+    -- Its parent may already be hidden when a direct native action is open.
+    NativeFlyout:closeForOwner(self)
 end
 
 -- will replace Germ:Hide() via Germ:new()

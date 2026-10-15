@@ -122,11 +122,24 @@ function EventHandlers:SPELLS_CHANGED(eventName, n)
     end)
 end
 
+function EventHandlers:SPELL_UPDATE_ICON(eventName)
+    SpellIcons:requestRefresh(eventName)
+end
+
+EventHandlers.MINIMAP_UPDATE_TRACKING = EventHandlers.SPELL_UPDATE_ICON
+EventHandlers.ACTIONBAR_UPDATE_STATE = EventHandlers.SPELL_UPDATE_ICON
+
+function EventHandlers:UNIT_AURA(eventName, count, unit)
+    if unit == "player" then SpellIcons:requestRefresh(eventName) end
+end
+
 -- sometimes SPELLS_CHANGED fires off only once.  Sometimes multiple times.
 -- Sometimes before the API accurately reports if the (un)learned spell is actually (un)known.
 -- So, yet again, fuck you very, VERY hard, Bliz.
 -- Can't risk ignoring / throttling the spam of events.
 EventHandlers.SPELLS_CHANGED = Throttler:throttle(1.5, "Ufo:SPELLS_CHANGED", EventHandlers.SPELLS_CHANGED)
+
+EventHandlers.SPELL_FLYOUT_UPDATE = EventHandlers.SPELLS_CHANGED
 
 --[[
 function EventHandlers:EDIT_MODE_LAYOUTS_UPDATED(eName, n, layoutInfo, reconcileLayouts)
