@@ -63,10 +63,12 @@ I'm working on supporting a few action bar and other addons:
 **Q:** How do I open UFO?  
 **A:** Any of the following will open the UFO Catalog where you can create and organize your custom flyouts:
 - Type `/ufo`
-- Click the [UFO] button in the upper right corner of the 
+- Click the narrow chevron tab on the right edge of the
     - Spellbook
     - Collections Panel
     - Macros Panel
+    - Professions Book
+- Click the tab again to close the catalog. Right-click it to open UFO settings.
 - Click "UFO" in the Addon Compartment (the new menu Blizzard added in Dragonflight to the upper right corner of the minimap).
 
 **Q:** What if one toon places an ability / item / etc. only they can use onto a flyout shared with other toons?  
@@ -77,7 +79,7 @@ I'm working on supporting a few action bar and other addons:
 
 **Q:** Does it work in combat?
 
-**A:** Yes.  Except summoning a battlepet companion.  Oh noes.
+**A:** Action-bar flyouts work in combat, except summoning a battlepet companion. Opening or changing the configuration catalog requires being out of combat. Attachment creation and layout changes wait until combat ends.
 
 ### Tips & Tricks:
 

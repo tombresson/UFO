@@ -30,6 +30,11 @@ local GREEN = GREEN_FONT_COLOR -- Bliz global
 local BLUE = BRIGHTBLUE_FONT_COLOR -- Bliz global
 local ADD_BUTTON_NAME = "ADD_BUTTON_NAME"
 local LANDING_BUTTON_NAME = "LANDING_BUTTON_NAME"
+local CATALOG_TAB_WIDTH = 20
+local CATALOG_TAB_HEIGHT = 88
+local CATALOG_TAB_CORNER_RADIUS = 3
+local CATALOG_TAB_OVERLAP = 3
+local CATALOG_TAB_OPEN_OVERLAP = 6
 
 -------------------------------------------------------------------------------
 -- Functions / Methods
@@ -60,19 +65,135 @@ function Catalog:hookFrame(frame)
     -- CollectionsJournal
     -- MacroFrame
     if frame then
-        frame:HookScript("OnShow", Catalog.createToggleButton)
+        frame:HookScript("OnShow", function() Catalog:createToggleButton(frame) end)
     end
 end
 
 local toggleBtns = {}
+local pendingToggleParents = {}
+local catalogHooksInstalled = false
+local catalogTabEvents = CreateFrame("Frame")
+
+local function getCatalogSideOffset(parentFrame)
+    -- The old spellbook's side tabs sit outside its reported width.
+    return parentFrame == SpellBookFrame and 35 or 0
+end
+
+local function createTabStrip(button, layer, x, y, width, height)
+    local texture = button:CreateTexture(nil, layer)
+    texture:SetPoint("TOPLEFT", button, "TOPLEFT", x, -y)
+    texture:SetSize(width, height)
+    return texture
+end
+
+local function createTabSkin(button)
+    local width, height, radius = CATALOG_TAB_WIDTH, CATALOG_TAB_HEIGHT, CATALOG_TAB_CORNER_RADIUS
+    button.FaceTextures, button.TopBevel, button.BottomBevel = {}, {}, {}
+    local function face(y, faceWidth, faceHeight)
+        local texture = createTabStrip(button, "ARTWORK", 0, y, faceWidth, faceHeight)
+        -- Sample only the opaque red center of the native panel-button art.
+        texture:SetTexCoord(0.125, 0.5, 0.25, 0.5)
+        table.insert(button.FaceTextures, texture)
+    end
+    local rim = createTabStrip(button, "BACKGROUND", 0, radius, width, height - 2 * radius)
+    rim:SetColorTexture(0.10, 0.065, 0.04, 1)
+    button.RightBevel = createTabStrip(button, "BORDER", width - 2, radius, 1, height - 2 * radius)
+    face(radius, width - 2, height - 2 * radius)
+    -- Small circular end caps preserve the close button's tight corner radius.
+    -- Each row ends at the curve; nothing is painted over the world behind it.
+    for row = 0, radius - 1 do
+        local distance = radius - row - 0.5
+        for _, top in ipairs({true, false}) do
+            local y = top and row or height - row - 1
+            local outerWidth = width - radius + math.sqrt(radius * radius - distance * distance)
+            local outline = createTabStrip(button, "BACKGROUND", 0, y, outerWidth, 1)
+            outline:SetColorTexture(0.10, 0.065, 0.04, 1)
+            if distance < radius - 1 then
+                local bevelWidth = width - radius + math.sqrt((radius - 1)^2 - distance^2)
+                local bevel = createTabStrip(button, "BORDER", 0, y, bevelWidth, 1)
+                table.insert(top and button.TopBevel or button.BottomBevel, bevel)
+            end
+            if distance < radius - 2 then
+                face(y, width - radius + math.sqrt((radius - 2)^2 - distance^2), 1)
+            end
+        end
+    end
+end
+
+local function setToggleAppearance(button, hovered)
+    local atlas = button.isCatalogPressed and "UI-HUD-ActionBar-Flyout-Down"
+        or hovered and "UI-HUD-ActionBar-Flyout-Mouseover"
+        or "UI-HUD-ActionBar-Flyout"
+    button.Arrow:SetAtlas(atlas)
+    -- SetAtlas resets texture coordinates, so apply the rotation afterwards.
+    SetClampedTextureRotation(button.Arrow, button.isCatalogOpen and 270 or 90)
+    local pressed = button.isCatalogPressed
+    for _, texture in ipairs(button.FaceTextures) do
+        texture:SetTexture(pressed and "Interface\\Buttons\\UI-Panel-Button-Down"
+            or "Interface\\Buttons\\UI-Panel-Button-Up")
+        local brightness = hovered and 1 or 0.9
+        texture:SetVertexColor(brightness, brightness, brightness)
+    end
+    for _, texture in ipairs(button.TopBevel) do
+        if pressed then texture:SetColorTexture(0.24, 0.12, 0.07, 1)
+        else texture:SetColorTexture(0.67, 0.43, 0.24, 1) end
+    end
+    for _, texture in ipairs(button.BottomBevel) do
+        if pressed then texture:SetColorTexture(0.55, 0.35, 0.18, 1)
+        else texture:SetColorTexture(0.27, 0.14, 0.08, 1) end
+    end
+    if pressed then button.RightBevel:SetColorTexture(0.55, 0.35, 0.18, 1)
+    else button.RightBevel:SetColorTexture(0.38, 0.23, 0.13, 1) end
+end
+
+-- Anchors may depend on protected Blizzard frames. Coalesce combat-time work
+-- until PLAYER_REGEN_ENABLED rather than moving or creating their attachments.
+catalogTabEvents:SetScript("OnEvent", function()
+    if InCombatLockdown() then return end
+    catalogTabEvents:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    local parents = pendingToggleParents
+    pendingToggleParents = {}
+    for parentFrame in pairs(parents) do
+        Catalog:createToggleButton(parentFrame)
+    end
+    Catalog:updateToggleButtons()
+end)
+
+function Catalog:updateToggleButtons()
+    if InCombatLockdown() then
+        catalogTabEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+    end
+    local catalogFrame = UFO_Catalog
+    for parentFrame, button in pairs(toggleBtns) do
+        local isOpen = catalogFrame and catalogFrame:IsShown() and catalogFrame:GetParent() == parentFrame
+        button.isCatalogOpen = not not isOpen
+        button:ClearAllPoints()
+        if isOpen then
+            button:SetPoint(Anchor.LEFT, catalogFrame, Anchor.RIGHT, -CATALOG_TAB_OPEN_OVERLAP, 0)
+        else
+            button:SetPoint(Anchor.LEFT, parentFrame, Anchor.RIGHT,
+                getCatalogSideOffset(parentFrame) - CATALOG_TAB_OVERLAP, 0)
+        end
+        button:SetFrameStrata(parentFrame:GetFrameStrata())
+        button:SetFrameLevel(math.max(parentFrame:GetFrameLevel(),
+            isOpen and catalogFrame:GetFrameLevel() or 0) + 10)
+        setToggleAppearance(button, button:IsMouseOver())
+    end
+end
 
 function Catalog:createToggleButtonIfWeCan(maybeFrame)
     if not maybeFrame then return end
     self:createToggleButton(maybeFrame)
 end
 
-function Catalog:createToggleButton(parentFrame, xBtnOverride)
+function Catalog:createToggleButton(parentFrame)
     assert(parentFrame, "can't find parent frame")
+    if InCombatLockdown() then
+        pendingToggleParents[parentFrame] = true
+        catalogTabEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+        return
+    end
     local parentFrameName = parentFrame:GetName()
     local btnName = "UFO_BtnToToggleCatalog_On".. parentFrameName
     ---@type Button
@@ -81,33 +202,47 @@ function Catalog:createToggleButton(parentFrame, xBtnOverride)
         -- we've already made it
         return
     end
-    local xBtnName = parentFrameName .."CloseButton"
-    local xBtnFrame = parentFrame.MaximizeMinimizeButton or _G[xBtnName]
-    zebug.trace:print("parentName", parentFrameName, "xBtnName", xBtnName, "btnName",btnName, "blizFrame.MaximizeMinimizeButton", parentFrame.MaximizeMinimizeButton)
 
-    btnFrame = CreateFrame(FrameType.BUTTON, btnName, parentFrame, "UIPanelButtonTemplate")
-    btnFrame:SetSize(80,22)
-    btnFrame:SetPoint(Anchor.RIGHT, xBtnOverride or xBtnFrame, Anchor.LEFT, 2, 1)
-    btnFrame:SetFrameStrata(xBtnFrame:GetFrameStrata())
-    btnFrame:SetFrameLevel(xBtnFrame:GetFrameLevel()+10 )
-    btnFrame.Text:SetText("UFO")
+    btnFrame = CreateFrame(FrameType.BUTTON, btnName, parentFrame)
+    btnFrame:SetSize(CATALOG_TAB_WIDTH, CATALOG_TAB_HEIGHT)
+    createTabSkin(btnFrame)
+    -- Grow the target outward, without covering controls inside the host panel.
+    btnFrame:SetHitRectInsets(0, -4, -2, -2)
+    btnFrame.Arrow = btnFrame:CreateTexture(nil, "OVERLAY")
+    btnFrame.Arrow:SetSize(15, 6)
+    btnFrame.Arrow:SetPoint("CENTER")
     btnFrame:RegisterForClicks("AnyUp")
     btnFrame:SetScript(Script.ON_CLICK, Catalog.clickUfoButton)
     btnFrame:SetScript(Script.ON_ENTER, Catalog.ON_ENTER)
     btnFrame:SetScript(Script.ON_LEAVE, Catalog.ON_LEAVE)
-    btnFrame:Show()
-
+    btnFrame:SetScript("OnMouseDown", function(button)
+        button.isCatalogPressed = true
+        setToggleAppearance(button, button:IsMouseOver())
+    end)
+    btnFrame:SetScript("OnMouseUp", function(button)
+        button.isCatalogPressed = false
+        setToggleAppearance(button, button:IsMouseOver())
+    end)
     toggleBtns[parentFrame] = btnFrame
+    parentFrame:HookScript("OnShow", function() Catalog:updateToggleButtons() end)
+    if UFO_Catalog and not catalogHooksInstalled then
+        catalogHooksInstalled = true
+        UFO_Catalog:HookScript("OnShow", function() Catalog:updateToggleButtons() end)
+        UFO_Catalog:HookScript("OnHide", function() Catalog:updateToggleButtons() end)
+    end
+    btnFrame:SetScript("OnHide", function(button)
+        button.isCatalogPressed = false
+    end)
+    Catalog:updateToggleButtons()
+    btnFrame:Show()
 end
 
 function Catalog:ON_LEAVE()
-    self:OnLeave() -- Call Bliz super()
-    GameTooltip:Hide()
+    setToggleAppearance(self, false)
 end
 
 function Catalog:ON_ENTER()
-    self:OnEnter() -- Call Bliz super()
-    GLOBAL_UFO_BlizCompartment_OnEnter(ADDON_NAME, self)
+    setToggleAppearance(self, true)
 end
 
 ---@param mouseClick MouseClick
@@ -140,12 +275,9 @@ function Catalog:toggle(clickedBtn, forceOpen)
 
     zebug.trace:print("parentName", blizFrameName, "oldParent name", oldBlizFrame:GetName(), "isCatalogOpen",isCatalogOpen, "willMoveCatalog", willMoveCatalog, "willCloseCatalog", willCloseCatalog )
 
-    local xOffSet = 0
-    if blizFrame == SpellBookFrame then
-        -- accommodate those tabs down the side...
-        -- because they aren't already included in the width?!?!  Facepalm.
-        xOffSet = 35
-    end
+    local xOffSet = getCatalogSideOffset(blizFrame)
+    local expandedWidth = blizFrame:GetWidth() + xOffSet + catalogFrame:GetWidth()
+        + CATALOG_TAB_WIDTH - CATALOG_TAB_OPEN_OVERLAP
 
     if willCloseCatalog then
         SetUIPanelAttribute(blizFrame, "width", blizFrame:GetWidth())
@@ -158,7 +290,7 @@ function Catalog:toggle(clickedBtn, forceOpen)
 
     if willMoveCatalog then
         catalogFrame:Hide()
-        SetUIPanelAttribute(blizFrame, "width", blizFrame:GetWidth() +150)
+        SetUIPanelAttribute(blizFrame, "width", expandedWidth)
         catalogFrame:SetParent(blizFrame)
         catalogFrame:ClearAllPoints() -- required to avoid error: Action[SetPoint] failed because[SetPoint would result in anchor family connection]
         catalogFrame:SetPoint(Anchor.TOPLEFT, blizFrame, Anchor.TOPRIGHT, xOffSet, -15)
@@ -166,7 +298,7 @@ function Catalog:toggle(clickedBtn, forceOpen)
     end
 
     if not willCloseCatalog then
-        SetUIPanelAttribute(blizFrame, "width", blizFrame:GetWidth() +150)
+        SetUIPanelAttribute(blizFrame, "width", expandedWidth)
         catalogFrame:Show()
     end
 
@@ -175,6 +307,7 @@ function Catalog:toggle(clickedBtn, forceOpen)
     if willMoveCatalog then
         UpdateUIPanelPositions(oldBlizFrame)
     end
+    Catalog:updateToggleButtons()
 end
 
 local NO_EVENT = Event:new(Catalog, "Misc Update")
@@ -338,6 +471,7 @@ function Catalog:clearProxyAndCursor(event)
 end
 
 function Catalog:open()
+    if isInCombatLockdown("Configuration") then return end
     local anyOpenBlizFrame
     for blizFrame, _ in pairs(toggleBtns) do
         if blizFrame:IsShown() then
